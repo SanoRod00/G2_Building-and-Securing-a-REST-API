@@ -58,7 +58,7 @@ def load_initial_data():
 
 
 class MoMoAPIHandler(BaseHTTPRequestHandler):
-    """HTTP Request Handler managing HTTP requests and Authentication."""
+    """HTTP Request Handler managing HTTP requests, Authentication, and CRUD endpoints."""
 
     def _send_json_response(self, status_code, data):
         """Helper to format and output JSON HTTP responses."""
@@ -90,18 +90,30 @@ class MoMoAPIHandler(BaseHTTPRequestHandler):
         except Exception:
             return False
 
+    def parse_json_body(self):
+        """Extract and parse JSON request body."""
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length == 0:
+                return None
+            body = self.rfile.read(content_length)
+            return json.loads(body.decode("utf-8"))
+        except Exception:
+            return None
+
+    def clean_request_path(self):
+        """Normalize URL path by stripping whitespace and trailing slashes."""
+        clean_path = self.path.strip().rstrip("/")
+        return clean_path if clean_path else "/"
+
+    # --- HTTP READ METHODS ---
+
     def do_GET(self):
         """Handles GET requests for health check, listing records, and individual lookup."""
         if not self.check_authentication():
             return self._send_unauthorized()
 
-        # Clean raw path (strips trailing slashes/spaces)
-        clean_path = self.path.strip().rstrip("/")
-        if not clean_path:
-            clean_path = "/"
-
-        # Debug print in server console
-        print(f"[*] Incoming GET request path: '{self.path}' -> cleaned: '{clean_path}'")
+        clean_path = self.clean_request_path()
 
         # Route: GET /health
         if clean_path == "/health":
@@ -119,6 +131,98 @@ class MoMoAPIHandler(BaseHTTPRequestHandler):
             if transaction:
                 return self._send_json_response(200, transaction)
             return self._send_json_response(404, {"error": f"Transaction '{tx_id}' not found."})
+
+        return self._send_json_response(404, {"error": f"Endpoint '{self.path}' not found"})
+
+    # --- HTTP WRITE METHODS ---
+
+    def do_POST(self):
+        """Handles POST /transactions to create a new transaction record."""
+        if not self.check_authentication():
+            return self._send_unauthorized()
+
+        clean_path = self.clean_request_path()
+
+        if clean_path == "/transactions":
+            payload = self.parse_json_body()
+            if not payload or not isinstance(payload, dict):
+                return self._send_json_response(400, {"error": "Invalid or missing JSON payload."})
+
+            tx_id = payload.get("transaction_id")
+            if not tx_id:
+                return self._send_json_response(400, {"error": "Field 'transaction_id' is required."})
+
+            str_tx_id = str(tx_id)
+            if str_tx_id in TRANSACTIONS_BY_ID:
+                return self._send_json_response(
+                    409, {"error": f"Transaction ID '{str_tx_id}' already exists."}
+                )
+
+            # Construct standardized record structure matching XML parsing format
+            new_record = {
+                "transaction_id": str_tx_id,
+                "transaction_type": payload.get("transaction_type", "unparsed"),
+                "amount_rwf": payload.get("amount_rwf"),
+                "counterparty": payload.get("counterparty"),
+                "body": payload.get("body", ""),
+            }
+
+            TRANSACTIONS.append(new_record)
+            TRANSACTIONS_BY_ID[str_tx_id] = new_record
+
+            return self._send_json_response(201, new_record)
+
+        return self._send_json_response(404, {"error": f"Endpoint '{self.path}' not found"})
+
+    def do_PUT(self):
+        """Handles PUT /transactions/{id} to update an existing record."""
+        if not self.check_authentication():
+            return self._send_unauthorized()
+
+        clean_path = self.clean_request_path()
+        match = re.match(r"^/transactions/([^/]+)$", clean_path)
+
+        if match:
+            tx_id = match.group(1)
+            transaction = TRANSACTIONS_BY_ID.get(tx_id)
+
+            if not transaction:
+                return self._send_json_response(404, {"error": f"Transaction '{tx_id}' not found."})
+
+            payload = self.parse_json_body()
+            if not payload or not isinstance(payload, dict):
+                return self._send_json_response(400, {"error": "Invalid or missing JSON payload."})
+
+            # Update present fields
+            for key in ["transaction_type", "amount_rwf", "counterparty", "body"]:
+                if key in payload:
+                    transaction[key] = payload[key]
+
+            return self._send_json_response(200, transaction)
+
+        return self._send_json_response(404, {"error": f"Endpoint '{self.path}' not found"})
+
+    def do_DELETE(self):
+        """Handles DELETE /transactions/{id} to remove a transaction record."""
+        if not self.check_authentication():
+            return self._send_unauthorized()
+
+        clean_path = self.clean_request_path()
+        match = re.match(r"^/transactions/([^/]+)$", clean_path)
+
+        if match:
+            tx_id = match.group(1)
+            transaction = TRANSACTIONS_BY_ID.get(tx_id)
+
+            if not transaction:
+                return self._send_json_response(404, {"error": f"Transaction '{tx_id}' not found."})
+
+            TRANSACTIONS.remove(transaction)
+            del TRANSACTIONS_BY_ID[tx_id]
+
+            return self._send_json_response(
+                200, {"message": f"Transaction '{tx_id}' deleted successfully."}
+            )
 
         return self._send_json_response(404, {"error": f"Endpoint '{self.path}' not found"})
 
