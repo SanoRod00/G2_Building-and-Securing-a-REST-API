@@ -2,9 +2,10 @@
 import base64
 import json
 import os
+import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# Server Configuration
+# Server Configuration & Auth Credentials
 PORT = 8000
 AUTH_USERNAME = "admin"
 AUTH_PASSWORD = "password123"
@@ -12,6 +13,7 @@ AUTH_PASSWORD = "password123"
 # In-memory primary storage (list) and indexed lookup (dict)
 TRANSACTIONS = []
 TRANSACTIONS_BY_ID = {}
+
 
 def load_initial_data():
     """Load parsed transactions from JSON output into memory and build dictionary index."""
@@ -89,15 +91,36 @@ class MoMoAPIHandler(BaseHTTPRequestHandler):
             return False
 
     def do_GET(self):
-        """Route handler enforcing authentication."""
-        # Enforce authentication check across all requests
+        """Handles GET requests for health check, listing records, and individual lookup."""
         if not self.check_authentication():
             return self._send_unauthorized()
 
-        if self.path == "/health":
+        # Clean raw path (strips trailing slashes/spaces)
+        clean_path = self.path.strip().rstrip("/")
+        if not clean_path:
+            clean_path = "/"
+
+        # Debug print in server console
+        print(f"[*] Incoming GET request path: '{self.path}' -> cleaned: '{clean_path}'")
+
+        # Route: GET /health
+        if clean_path == "/health":
             return self._send_json_response(200, {"status": "healthy", "authenticated": True})
 
-        return self._send_json_response(404, {"error": "Endpoint not found"})
+        # Route: GET /transactions
+        if clean_path == "/transactions":
+            return self._send_json_response(200, TRANSACTIONS)
+
+        # Route: GET /transactions/{id}
+        match = re.match(r"^/transactions/([^/]+)$", clean_path)
+        if match:
+            tx_id = match.group(1)
+            transaction = TRANSACTIONS_BY_ID.get(tx_id)
+            if transaction:
+                return self._send_json_response(200, transaction)
+            return self._send_json_response(404, {"error": f"Transaction '{tx_id}' not found."})
+
+        return self._send_json_response(404, {"error": f"Endpoint '{self.path}' not found"})
 
 
 def main():
