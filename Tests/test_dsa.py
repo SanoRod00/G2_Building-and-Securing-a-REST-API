@@ -2,8 +2,8 @@
 
 import unittest
 
-from dsa.API.parse_sms import parse_sms_message
-from dsa.API.search_compare import find_transaction_by_dict, find_transaction_linearly
+from dsa.parse_sms import parse_sms_message
+from dsa.search_compare import find_transaction_by_dict, find_transaction_linearly
 
 
 class SmsParserTests(unittest.TestCase):
@@ -20,12 +20,34 @@ class SmsParserTests(unittest.TestCase):
         self.assertEqual(transaction["amount_rwf"], 2000)
         self.assertEqual(transaction["counterparty"], "Jane Smith")
 
+    def test_parses_transfer_with_financial_transaction_id(self):
+        body = (
+            "You have transferred 5000 RWF to Alex Brown (*********014) "
+            "on your mobile money account. Financial Transaction Id: 12345678901."
+        )
+
+        transaction = parse_sms_message(body)
+
+        self.assertEqual(transaction["transaction_type"], "transfer")
+        self.assertEqual(transaction["amount_rwf"], 5000)
+        self.assertEqual(transaction["transaction_id"], "12345678901")
+
+    def test_parses_yello_bundle_purchase_without_transaction_id(self):
+        body = "Yello! You have purchased a bundle of 1000 RWF."
+
+        transaction = parse_sms_message(body)
+
+        self.assertEqual(transaction["transaction_type"], "bundle_purchase")
+        self.assertEqual(transaction["amount_rwf"], 1000)
+        self.assertIsNone(transaction["transaction_id"])
+
     def test_keeps_unknown_message_as_unparsed(self):
         transaction = parse_sms_message("A message with no supported transaction pattern.")
 
         self.assertEqual(transaction["transaction_type"], "unparsed")
         self.assertIsNone(transaction["transaction_id"])
         self.assertIsNone(transaction["amount_rwf"])
+        self.assertIsNone(transaction["counterparty"])
 
 
 class TransactionLookupTests(unittest.TestCase):

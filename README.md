@@ -22,4 +22,8 @@ python3 Tests/test_api.py
 
 The tests expect the API server to be running on port 8000.
 
+## Project report
+
+The complete API security and DSA report is available as a [PDF](docs/report_security_and_dsa.pdf).
+
 Transaction data is stored in memory and resets when the server restarts.
