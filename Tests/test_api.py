@@ -1,7 +1,7 @@
 """Tests for REST API (server.py).
 
 Start the server first in another terminal:
-    python3 dsa/API/server.py
+    python3 api/server.py
 Then run these tests from the project root:
     python3 Tests/test_api.py
     """
@@ -107,7 +107,7 @@ class MoMoApiTests(unittest.TestCase):
 
 
     def test_05_get_missing_transaction_returns_404(self):
-        status, response, data = send_request("GET", f"/transanctions?{MISSING_ID}")
+        status, response, data = send_request("GET", f"/transactions/{MISSING_ID}")
         self.assertEqual(status, 404)
         self.assertIn("error", data)
 

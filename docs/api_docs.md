@@ -8,7 +8,7 @@ AREST API built with Python's `http.server` that exposes MoMo SMS transactions p
 http://localhost:8000
 ```
 
-Start the server from the `api/` folder with `pytho3 server.py`.
+Start the server from the `api/` folder with `python3 server.py`.
 
 ## Authentication 
 
@@ -270,4 +270,4 @@ Authentication is checked before anything else, so an unauthenticated request re
  
 ## Testing
  
-The automated tests in `tests/test_api.py` cover all endpoints and the error codes above. Start the server, then run `python3 tests/test_api.py` from the project root. Screenshots of manual curl requests are in the `screenshots/` folder.
+The automated tests in `Tests/test_api.py` cover all endpoints and the error codes above. Start the server, then run `python3 Tests/test_api.py` from the project root. Screenshots of manual curl requests are in the `screenshots/` folder.
