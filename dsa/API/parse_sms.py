@@ -180,7 +180,7 @@ def save_transactions(transactions, output_path):
 # Use paths beside this script so it works when started from any folder.
 def main():
     script_folder = os.path.dirname(os.path.abspath(__file__))
-    project_folder = os.path.dirname(script_folder)
+    project_folder = os.path.dirname(os.path.dirname(script_folder))
     xml_path = os.path.join(project_folder, "modified_sms_v2-1.xml")
     output_path = os.path.join(script_folder, "output.json")
 
